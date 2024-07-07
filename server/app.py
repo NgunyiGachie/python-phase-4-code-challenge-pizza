@@ -73,57 +73,40 @@ class Pizzas(Resource):
 
 class RestaurantPizzas(Resource):
      
-     def post(self):
+      def post(self):
         data = request.get_json()
-        price = data.get("price")
-        restaurant_id = data.get("restaurant_id")
-        pizza_id = data.get("pizza_id")
-
-        if not (price and restaurant_id and pizza_id):
-            return {"error": "Missing required fields"}, 400
 
         try:
-            pizza = Pizza.query.filter_by(id=pizza_id).first()
-            restaurant = Restaurant.query.filter_by(id=restaurant_id).first()
+            restaurant_id = data['restaurant_id']
+            pizza_id = data['pizza_id']
+            price = data['price']
 
-            if not (pizza and restaurant):
-                return {"error": "Pizza or Restaurant not found"}, 404
-            
+            if not (1 <= price <= 30):
+                return make_response(jsonify({"errors": ["validation errors"]}), 400)
+
+            restaurant = Restaurant.query.get(restaurant_id)
+            pizza = Pizza.query.get(pizza_id)
+
+            if not restaurant or not pizza:
+                return make_response(jsonify({"errors": ["Restaurant or Pizza not found"]}), 404)
+
             new_restaurant_pizza = RestaurantPizza(
                 price=price,
-                restaurant_id=restaurant_id,
-                pizza_id=pizza_id
+                pizza_id=pizza_id,
+                restaurant_id=restaurant_id
             )
 
             db.session.add(new_restaurant_pizza)
             db.session.commit()
 
-            response_data = {
-                "id": new_restaurant_pizza.id,
-                "pizza": {
-                    "id": pizza.id,
-                    "name": pizza.name,
-                    "ingredients": pizza.ingredients
-                },
-                "pizza_id": new_restaurant_pizza.pizza_id,
-                "price": new_restaurant_pizza.price,
-                "restaurant": {
-                    "id": restaurant.id,
-                    "name": restaurant.name,
-                    "address": restaurant.address
-                },
-                "restaurant_id": new_restaurant_pizza.restaurant_id
-            }
-
-            return response_data, 201
+            response = new_restaurant_pizza.to_dict()
+            return make_response(jsonify(response), 201)
 
         except KeyError as e:
             return make_response(jsonify({"errors": [f"Missing key: {str(e)}"]}), 400)
         except Exception as e:
             db.session.rollback()
             return make_response(jsonify({"errors": [str(e)]}), 400)
-        finally:
-            db.session.close()
 
 api.add_resource(Home, "/")
 api.add_resource(Restaurants, "/restaurants")
